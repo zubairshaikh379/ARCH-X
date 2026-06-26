@@ -1,0 +1,2 @@
+- [ARCH-X platform architecture](arch-x-platform.md) — full app rebuilt; App.tsx is the single orchestrator for all state, VM, terminal, XP, auth
+- [ARCH-X security decisions](arch-x-security.md) — auth quirks, flag bypass fix, session restore guard, diagnostics XP fix
