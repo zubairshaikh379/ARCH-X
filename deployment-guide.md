@@ -1,24 +1,28 @@
 # 🚀 ARCH-X Production Deployment Guide
+**Developed by Zubair Shaikh**
 
-This guide provides step-by-step instructions for exporting this React-based cyber security training platform from Google AI Studio, deploying it to production using **Vercel**, and configuring required cloud database and AI integrations.
+This guide provides step-by-step instructions for deploying this React-based cyber security training platform to production using **Vercel**, and configuring required cloud database and AI integrations.
 
 ---
 
 ## 📋 Prerequisites
 Before deploying to production, make sure you have the following:
-1. A **GitHub** account.
+1. A **GitHub** account with your repository set up: [ARCH-X on GitHub](https://github.com/zubairshaikh379/ARCH-X).
 2. A **Vercel** account (connected to your GitHub account).
 3. A **Supabase** project (providing your database connection URLs and anonymous keys).
-4. A **Google Gemini API Key** (for server-side security simulations and AI-assisted audits).
+4. A **Gemini API Key** (for server-side security simulations and AI-assisted audits).
 
 ---
 
-## 🔍 Step 1: Exporting the Codebase from AI Studio
+## 🔍 Step 1: Clone the Codebase
 
-To get your source code out of the interactive environment:
-1. Open the **Settings Menu** in the upper-right corner of Google AI Studio.
-2. Click **Export Project** and select **Download as ZIP file** (or directly **Export to GitHub** if available and linked).
-3. Extract the downloaded ZIP archive into a local folder on your workstation.
+To work with your codebase locally or push to your hosting provider:
+1. Clone the repository from your GitHub profile:
+   ```bash
+   git clone https://github.com/zubairshaikh379/ARCH-X.git
+   cd ARCH-X
+   ```
+2. Open the directory in your preferred integrated development environment (IDE) like VS Code.
 
 ---
 
@@ -79,7 +83,7 @@ ARCH-X supports local storage caching by default but upgrades automatically to p
 2. Go to the [Vercel Dashboard](https://vercel.com/) and click **Add New** -> **Project**.
 3. Select your ARCH-X GitHub repository and click **Import**.
 4. In the **Environment Variables** section, add the following variables:
-   * `GEMINI_API_KEY`: Your private Google Gemini API token (kept server-side).
+   * `GEMINI_API_KEY`: Your private Gemini API token (kept server-side).
    * `VITE_SUPABASE_URL`: Your Supabase Project API URL.
    * `VITE_SUPABASE_ANON_KEY`: Your Supabase Anonymous Public Key.
 5. Click **Deploy**. Vercel will automatically run `npm run build` and provision your secure production hosting URL.
