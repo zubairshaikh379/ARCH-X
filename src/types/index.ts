@@ -1,4 +1,5 @@
 export interface UserProfile {
+  id: string;
   username: string;
   callsign: string;
   accentColor: 'slate' | 'emerald' | 'cyan' | 'amber' | 'rose' | 'indigo';
@@ -21,6 +22,7 @@ export interface Notification {
 
 export interface CommunityIdea {
   id: string;
+  user_id?: string;
   title: string;
   desc: string;
   category: 'Feature' | 'Challenge' | 'Bug' | 'Content' | 'Other';
@@ -34,6 +36,7 @@ export type AppPage = 'landing' | 'auth';
 export type AppTab = 'home' | 'courses' | 'osint' | 'community' | 'profile';
 
 export const DEFAULT_PROFILE: UserProfile = {
+  id: '',
   username: '',
   callsign: 'Security Operator',
   accentColor: 'cyan',

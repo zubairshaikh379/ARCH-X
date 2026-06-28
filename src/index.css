@@ -390,6 +390,10 @@ body {
   to { transform: rotate(360deg); }
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 @keyframes float-y {
   0%, 100% { transform: translateY(0px); }
   50%       { transform: translateY(-12px); }

@@ -1,14 +1,28 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { supabase } from "../lib/supabase";
 import { COURSES, MOCK_LEADERBOARD, OSINT_CHALLENGES } from "../data/courses";
 import type { UserProfile } from "../types";
 import { ACCENT_COLORS } from "../types";
-import { UserStore } from "../lib/auth";
+import { enrollMfa, verifyMfaEnrollment, disableMfa } from "../lib/auth";
+import type { MfaEnrollment } from "../lib/auth";
 import {
   User, Shield, Trophy, Zap, BookOpen, Search,
-  Edit2, Check, AlertTriangle, Trash2, Activity, Lock,
+  Edit2, Check, AlertTriangle, Trash2, Activity, Lock, Loader,
 } from "lucide-react";
+
+function errorMessage(e: unknown): string {
+  if (e && typeof e === "object" && "message" in e) return String((e as { message: unknown }).message);
+  return "Something went wrong. Please try again.";
+}
+
+interface BoardEntry {
+  rank: number;
+  name: string;
+  xp: number;
+  badge: string;
+  completedCount: number;
+}
 
 interface ProfilePageProps {
   userProfile: UserProfile;
@@ -25,6 +39,15 @@ export default function ProfilePage({ userProfile, onUpdateProfile, onAddXp, onN
   const [bioDraft, setBioDraft] = useState(userProfile.bio || "");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [diagnosticsMsg, setDiagnosticsMsg] = useState<string | null>(null);
+
+  // MFA enrollment flow
+  const [mfaBusy, setMfaBusy] = useState(false);
+  const [enroll, setEnroll] = useState<MfaEnrollment | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaErr, setMfaErr] = useState("");
+
+  // Live leaderboard (falls back to mock if the view is unavailable)
+  const [liveBoard, setLiveBoard] = useState<BoardEntry[] | null>(null);
 
   const xpInLevel = userProfile.xp % 1000;
   const xpPct = (xpInLevel / 1000) * 100;
@@ -56,12 +79,45 @@ export default function ProfilePage({ userProfile, onUpdateProfile, onAddXp, onN
     onNotify(`Accent updated to ${ACCENT_COLORS[color].label}`, "success");
   };
 
-  /* ── MFA toggle ────────────────────────────────────────── */
-  const handleMfaToggle = () => {
-    const next = !userProfile.mfaEnabled;
-    onUpdateProfile({ mfaEnabled: next });
-    UserStore.update(userProfile.username, { mfaEnabled: next });
-    onNotify(next ? "2-Factor Authentication enabled" : "2-Factor Authentication disabled", next ? "success" : "info");
+  /* ── MFA (real TOTP via Supabase) ──────────────────────── */
+  const handleEnableMfa = async () => {
+    setMfaErr(""); setMfaBusy(true);
+    try {
+      const enrollment = await enrollMfa();
+      setEnroll(enrollment);
+    } catch (err) {
+      setMfaErr(errorMessage(err));
+    } finally {
+      setMfaBusy(false);
+    }
+  };
+
+  const handleVerifyEnrollment = async () => {
+    if (!enroll) return;
+    setMfaErr(""); setMfaBusy(true);
+    try {
+      await verifyMfaEnrollment(enroll.factorId, mfaCode.trim());
+      onUpdateProfile({ mfaEnabled: true });
+      setEnroll(null); setMfaCode("");
+      onNotify("Two-factor authentication enabled", "success");
+    } catch (err) {
+      setMfaErr(errorMessage(err));
+    } finally {
+      setMfaBusy(false);
+    }
+  };
+
+  const handleDisableMfa = async () => {
+    setMfaErr(""); setMfaBusy(true);
+    try {
+      await disableMfa();
+      onUpdateProfile({ mfaEnabled: false });
+      onNotify("Two-factor authentication disabled", "info");
+    } catch (err) {
+      setMfaErr(errorMessage(err));
+    } finally {
+      setMfaBusy(false);
+    }
   };
 
   /* ── Save callsign ─────────────────────────────────────── */
@@ -69,7 +125,7 @@ export default function ProfilePage({ userProfile, onUpdateProfile, onAddXp, onN
     const cs = callsignDraft.trim() || "Security Operator";
     onUpdateProfile({ callsign: cs });
     try {
-      await supabase.from("profiles").update({ callsign: cs }).eq("username", userProfile.username);
+      await supabase.from("profiles").update({ callsign: cs }).eq("id", userProfile.id);
     } catch { /* local fallback handled by onUpdateProfile */ }
     setEditingCallsign(false);
   };
@@ -83,11 +139,34 @@ export default function ProfilePage({ userProfile, onUpdateProfile, onAddXp, onN
   /* ── Clear all data ────────────────────────────────────── */
   const handleClear = async () => {
     try {
-      await supabase.from("profiles").delete().eq("username", userProfile.username);
-      await supabase.from("user_vms").delete().eq("username", userProfile.username);
+      await supabase.from("user_vms").delete().eq("user_id", userProfile.id);
+      await supabase.from("profiles").delete().eq("id", userProfile.id);
     } catch { /* ignore */ }
     onClearAndLogout();
   };
+
+  /* ── Live leaderboard ──────────────────────────────────── */
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("leaderboard")
+          .select("username, callsign, xp, level, completed_count")
+          .order("xp", { ascending: false })
+          .limit(50);
+        if (!active || error || !data || data.length === 0) return;
+        setLiveBoard(data.map((r, i) => ({
+          rank: i + 1,
+          name: r.username,
+          xp: r.xp ?? 0,
+          badge: `Level ${r.level ?? 1}`,
+          completedCount: r.completed_count ?? 0,
+        })));
+      } catch { /* keep mock fallback */ }
+    })();
+    return () => { active = false; };
+  }, [userProfile.xp]);
 
   /* ── Leaderboard: inject current user ──────────────────── */
   const board = [...MOCK_LEADERBOARD];
@@ -101,13 +180,16 @@ export default function ProfilePage({ userProfile, onUpdateProfile, onAddXp, onN
   };
   // Insert at correct rank by XP
   const insertIdx = board.findIndex(e => e.xp < userProfile.xp);
-  const finalBoard = insertIdx === -1
+  const mockBoard = insertIdx === -1
     ? [...board, { ...userEntry, rank: board.length + 1 }]
     : [
         ...board.slice(0, insertIdx).map((e, i) => ({ ...e, rank: i + 1 })),
-        { ...userEntry, rank: insertIdx + 1, isSelf: true },
+        { ...userEntry, rank: insertIdx + 1 },
         ...board.slice(insertIdx).map((e, i) => ({ ...e, rank: insertIdx + i + 2 })),
       ];
+
+  // Prefer the real leaderboard; fall back to the mock board offline.
+  const finalBoard: BoardEntry[] = liveBoard ?? mockBoard;
 
   return (
     <div style={{ padding: "2rem", maxWidth: "1100px", margin: "0 auto" }}>
@@ -286,16 +368,21 @@ export default function ProfilePage({ userProfile, onUpdateProfile, onAddXp, onN
                 <div>
                   <div style={{ fontSize: "0.875rem", fontWeight: 500 }}>Two-Factor Authentication</div>
                   <div style={{ fontSize: "0.75rem", color: "var(--text-3)" }}>
-                    {userProfile.mfaEnabled ? "Enabled — OTP required on login" : "Disabled — password only"}
+                    {userProfile.mfaEnabled ? "Enabled — authenticator code required on login" : "Disabled — password only"}
                   </div>
                 </div>
               </div>
               <button
-                onClick={handleMfaToggle}
+                disabled={mfaBusy}
+                onClick={() => {
+                  if (userProfile.mfaEnabled) void handleDisableMfa();
+                  else if (enroll) setEnroll(null);
+                  else void handleEnableMfa();
+                }}
                 style={{
                   width: "44px", height: "24px", borderRadius: "12px",
                   background: userProfile.mfaEnabled ? "var(--accent)" : "rgba(255,255,255,0.1)",
-                  border: "none", cursor: "pointer", position: "relative", transition: "background 0.25s",
+                  border: "none", cursor: mfaBusy ? "wait" : "pointer", position: "relative", transition: "background 0.25s",
                 }}
               >
                 <div style={{
@@ -306,6 +393,53 @@ export default function ProfilePage({ userProfile, onUpdateProfile, onAddXp, onN
                 }} />
               </button>
             </div>
+
+            {/* Enrollment panel (real TOTP) */}
+            {enroll && !userProfile.mfaEnabled && (
+              <div style={{
+                marginTop: "1rem", paddingTop: "1rem", borderTop: "1px solid var(--border)",
+                display: "flex", flexDirection: "column", gap: "0.75rem",
+              }}>
+                <div style={{ fontSize: "0.8125rem", color: "var(--text-2)", lineHeight: 1.5 }}>
+                  Scan this QR code with an authenticator app (Google Authenticator, Authy, 1Password), then enter the 6-digit code.
+                </div>
+                <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+                  <img
+                    src={enroll.qrCode}
+                    alt="TOTP QR code"
+                    width={132}
+                    height={132}
+                    style={{ borderRadius: "8px", background: "#fff", padding: "6px" }}
+                  />
+                  <div style={{ flex: 1, minWidth: "160px" }}>
+                    <div style={{ fontSize: "0.7rem", color: "var(--text-3)", marginBottom: "0.25rem" }}>Or enter this key manually:</div>
+                    <code style={{
+                      display: "block", wordBreak: "break-all", fontSize: "0.72rem",
+                      fontFamily: "var(--font-mono)", color: "var(--accent)",
+                      background: "rgba(34,211,238,0.06)", padding: "0.5rem", borderRadius: "6px",
+                    }}>{enroll.secret}</code>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <input
+                    className="input-field"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={mfaCode}
+                    onChange={e => setMfaCode(e.target.value.replace(/\D/g, ""))}
+                    placeholder="000000"
+                    style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em", textAlign: "center" }}
+                  />
+                  <button className="btn btn-accent btn-sm" onClick={() => void handleVerifyEnrollment()} disabled={mfaBusy || mfaCode.length < 6}>
+                    {mfaBusy ? <Loader size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Check size={13} />} Verify
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {mfaErr && (
+              <div style={{ fontSize: "0.78rem", color: "#f87171", marginTop: "0.625rem" }}>{mfaErr}</div>
+            )}
           </div>
 
           {/* Global Leaderboard */}

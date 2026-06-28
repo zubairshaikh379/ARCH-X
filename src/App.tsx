@@ -2,7 +2,11 @@ import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import { motion } from "motion/react";
 import { AnimatePresence } from "motion/react";
 import { supabase } from "./lib/supabase";
-import { Session, ProfileStore, UserStore } from "./lib/auth";
+import {
+  ProfileStore, getSession, onAuthChange, signOut,
+  usernameFromUser, isMfaEnabled,
+} from "./lib/auth";
+import type { User } from "@supabase/supabase-js";
 import { ACCENT_COLORS, DEFAULT_PROFILE } from "./types";
 import type { UserProfile, Notification, VmStatus, AppPage, AppTab } from "./types";
 import type { Course } from "./data/courses";
@@ -172,16 +176,21 @@ export default function App() {
   }, [vmStatus]);
 
   // ── Session restore on mount ──────────────────────────────────
-  // Guard: verify the saved username actually exists in UserStore
-  // before restoring, preventing localStorage impersonation.
+  // Restore from the Supabase Auth session (a verified JWT), not a forgeable
+  // localStorage username. Also reacts to sign-out from any tab.
   useEffect(() => {
-    const saved = Session.get();
-    if (saved && UserStore.find(saved)) {
-      handleAuthSuccess(saved);
-    } else if (saved) {
-      // Stale or forged session — clear it
-      Session.clear();
-    }
+    let active = true;
+    getSession().then(session => {
+      if (active && session?.user) handleAuthSuccess(session.user);
+    });
+    // React to sign-out (this tab, another tab, or token expiry).
+    const unsub = onAuthChange(session => {
+      if (!session) {
+        setIsLoggedIn(false);
+        setUserProfile(DEFAULT_PROFILE);
+      }
+    });
+    return () => { active = false; unsub(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -199,9 +208,10 @@ export default function App() {
 
   const saveProfile = useCallback(async (profile: UserProfile) => {
     setUserProfile(profile);
-    ProfileStore.save(profile.username, profile as unknown as Record<string, unknown>);
+    ProfileStore.save(profile.id, profile as unknown as Record<string, unknown>);
     try {
       await supabase.from("profiles").upsert({
+        id:                profile.id,
         username:          profile.username,
         callsign:          profile.callsign,
         accent_color:      profile.accentColor,
@@ -209,8 +219,11 @@ export default function App() {
         level:             profile.level,
         completed_courses: profile.completedCourses,
         completed_osint:   profile.completedOsint,
+        bio:               profile.bio,
+        avatar:            profile.avatar,
+        last_diagnostics_run: profile.lastDiagnosticsRun,
         updated_at:        new Date().toISOString(),
-      }, { onConflict: "username" });
+      }, { onConflict: "id" });
     } catch { /* silent — localStorage is the fallback */ }
   }, []);
 
@@ -219,10 +232,10 @@ export default function App() {
       const nextXp    = prev.xp + amount;
       const nextLevel = Math.floor(nextXp / 1000) + 1;
       const updated   = { ...prev, xp: nextXp, level: nextLevel };
-      ProfileStore.save(prev.username, updated as unknown as Record<string, unknown>);
+      ProfileStore.save(prev.id, updated as unknown as Record<string, unknown>);
       void supabase.from("profiles")
         .update({ xp: nextXp, level: nextLevel })
-        .eq("username", prev.username)
+        .eq("id", prev.id)
         .then(undefined, () => {});
       return updated;
     });
@@ -230,15 +243,19 @@ export default function App() {
   }, [triggerNotification]);
 
   // ── Auth ──────────────────────────────────────────────────────
-  const handleAuthSuccess = useCallback(async (username: string) => {
-    Session.set(username);
+  const handleAuthSuccess = useCallback(async (user: User) => {
+    const id = user.id;
+    const username = usernameFromUser(user);
+    const email = user.email ?? "";
 
-    // Start from default + any local save
-    const local = ProfileStore.get(username) as Partial<UserProfile> | null;
+    // Start from default + any local cache (keyed by auth user id)
+    const local = ProfileStore.get(id) as Partial<UserProfile> | null;
     let profile: UserProfile = {
       ...DEFAULT_PROFILE,
-      username,
       ...(local || {}),
+      id,
+      username,
+      email,
     };
 
     // Sync from Supabase
@@ -246,16 +263,19 @@ export default function App() {
       const { data } = await supabase
         .from("profiles")
         .select("*")
-        .eq("username", username)
+        .eq("id", id)
         .single();
 
       if (data) {
         profile = {
           ...profile,
-          callsign:         data.callsign      || profile.callsign,
-          accentColor:      data.accent_color  || profile.accentColor,
-          xp:               Math.max(profile.xp, data.xp || 0),
-          level:            Math.max(profile.level, data.level || 1),
+          callsign:           data.callsign      || profile.callsign,
+          accentColor:        data.accent_color  || profile.accentColor,
+          xp:                 Math.max(profile.xp, data.xp || 0),
+          level:              Math.max(profile.level, data.level || 1),
+          bio:                data.bio ?? profile.bio,
+          avatar:             data.avatar ?? profile.avatar,
+          lastDiagnosticsRun: data.last_diagnostics_run ?? profile.lastDiagnosticsRun,
           completedCourses: Array.from(new Set([
             ...profile.completedCourses,
             ...(data.completed_courses || []),
@@ -266,8 +286,9 @@ export default function App() {
           ])),
         };
       } else {
-        // First login — create Supabase profile
-        await supabase.from("profiles").insert({
+        // Profile row missing (e.g. signup trigger not installed) — create it.
+        await supabase.from("profiles").upsert({
+          id,
           username,
           callsign:          profile.callsign,
           accent_color:      profile.accentColor,
@@ -275,11 +296,13 @@ export default function App() {
           level:             profile.level,
           completed_courses: profile.completedCourses,
           completed_osint:   profile.completedOsint,
-        });
+        }, { onConflict: "id" });
       }
     } catch { /* local fallback */ }
 
-    ProfileStore.save(username, profile as unknown as Record<string, unknown>);
+    try { profile.mfaEnabled = await isMfaEnabled(); } catch { /* ignore */ }
+
+    ProfileStore.save(id, profile as unknown as Record<string, unknown>);
     setUserProfile(profile);
     setTerminalHistory([
       "[ARCH-X Terminal v2.0]",
@@ -290,8 +313,8 @@ export default function App() {
     setPage("landing"); // clear page state
   }, []);
 
-  const handleLogout = useCallback(() => {
-    Session.clear();
+  const handleLogout = useCallback(async () => {
+    await signOut();
     setIsLoggedIn(false);
     setUserProfile(DEFAULT_PROFILE);
     setSelectedCourse(null);
@@ -303,9 +326,8 @@ export default function App() {
   }, []);
 
   const handleClearAndLogout = useCallback(() => {
-    const u = userProfileRef.current.username;
-    ProfileStore.clear(u);
-    handleLogout();
+    ProfileStore.clear(userProfileRef.current.id);
+    void handleLogout();
   }, [handleLogout]);
 
   // ── VM ────────────────────────────────────────────────────────
@@ -353,14 +375,14 @@ export default function App() {
 
       try {
         await supabase.from("user_vms").upsert({
-          username:  userProfileRef.current.username,
+          user_id:   userProfileRef.current.id,
           course_id: selectedCourse.id,
           status:    "running",
           ip_address: newIP,
           port:      newPort,
           flag:      newFlag,
           solved:    false,
-        }, { onConflict: "username,course_id" });
+        }, { onConflict: "user_id,course_id" });
       } catch { /* silent */ }
     }, 3500);
   }, [selectedCourse, vmStatus, triggerNotification]);
@@ -376,7 +398,7 @@ export default function App() {
       if (selectedCourse) {
         await supabase.from("user_vms")
           .update({ status: "off" })
-          .eq("username", userProfileRef.current.username)
+          .eq("user_id", userProfileRef.current.id)
           .eq("course_id", selectedCourse.id);
       }
     } catch { /* silent */ }
@@ -401,7 +423,7 @@ export default function App() {
         try {
           await supabase.from("user_vms")
             .update({ solved: true, status: "off" })
-            .eq("username", userProfileRef.current.username)
+            .eq("user_id", userProfileRef.current.id)
             .eq("course_id", courseId);
         } catch { /* silent */ }
       }
@@ -451,10 +473,10 @@ export default function App() {
     setUserProfile(prev => {
       const newList = Array.from(new Set([...(prev.completedOsint || []), id]));
       const updated = { ...prev, completedOsint: newList };
-      ProfileStore.save(prev.username, updated as unknown as Record<string, unknown>);
+      ProfileStore.save(prev.id, updated as unknown as Record<string, unknown>);
       void supabase.from("profiles")
         .update({ completed_osint: newList })
-        .eq("username", prev.username)
+        .eq("id", prev.id)
         .then(undefined, () => {});
       return updated;
     });
@@ -464,8 +486,9 @@ export default function App() {
   const handleUpdateProfile = useCallback((updates: Partial<UserProfile>) => {
     setUserProfile(prev => {
       const updated = { ...prev, ...updates };
-      ProfileStore.save(prev.username, updated as unknown as Record<string, unknown>);
+      ProfileStore.save(prev.id, updated as unknown as Record<string, unknown>);
       void supabase.from("profiles").upsert({
+        id:                prev.id,
         username:          prev.username,
         callsign:          updated.callsign,
         accent_color:      updated.accentColor,
@@ -473,8 +496,11 @@ export default function App() {
         level:             updated.level,
         completed_courses: updated.completedCourses,
         completed_osint:   updated.completedOsint,
+        bio:               updated.bio,
+        avatar:            updated.avatar,
+        last_diagnostics_run: updated.lastDiagnosticsRun,
         updated_at:        new Date().toISOString(),
-      }, { onConflict: "username" }).then(undefined, () => {});
+      }, { onConflict: "id" }).then(undefined, () => {});
       return updated;
     });
   }, []);

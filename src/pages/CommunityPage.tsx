@@ -80,6 +80,7 @@ export default function CommunityPage({ userProfile, onNotify }: CommunityPagePr
     setSubmitting(true);
     const idea: CommunityIdea = {
       id: `idea-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      user_id: userProfile.id,
       title: title.trim(),
       desc: desc.trim(),
       category: cat,
