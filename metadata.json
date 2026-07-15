@@ -1,0 +1,6 @@
+{
+  "name": "ARCH-X Cloud Labs",
+  "description": "Ultra-premium single-viewport cloud-hosting, interactive security courses, simulated laboratories, and open OSINT intelligence missions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

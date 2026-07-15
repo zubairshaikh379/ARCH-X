@@ -1,0 +1,104 @@
+-- ──────────────────────────────────────────────────────────────────
+-- ARCH-X: ULTIMATE MIGRATION (Run this to replace your old schema)
+-- ──────────────────────────────────────────────────────────────────
+
+-- 1. DESTROY OLD INSECURE TABLES
+
+-- 2. CREATE SECURE PROFILES TABLE (Keyed by Auth UUID)
+CREATE TABLE public.profiles (
+    id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    callsign TEXT DEFAULT 'Security Operator',
+    accent_color TEXT DEFAULT 'slate',
+    xp INTEGER DEFAULT 0,
+    level INTEGER DEFAULT 1,
+    completed_courses TEXT[] DEFAULT array[]::text[],
+    completed_osint TEXT[] DEFAULT array[]::text[],
+    bio TEXT,
+    avatar TEXT,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- 3. CREATE SECURE VMS TABLE
+CREATE TABLE public.user_vms (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    course_id TEXT NOT NULL,
+    username TEXT NOT NULL, -- Kept for easy leaderboard joins
+    status TEXT DEFAULT 'off',
+    ip_address TEXT,
+    port INTEGER DEFAULT 22,
+    uptime_seconds INTEGER DEFAULT 0,
+    files_json JSONB DEFAULT '[]'::jsonb,
+    flag TEXT,
+    solved BOOLEAN DEFAULT FALSE,
+    cpu_usage FLOAT DEFAULT 0.0,
+    ram_usage FLOAT DEFAULT 0.0,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    UNIQUE (user_id, course_id)
+);
+
+-- 4. COMMUNITY & REVIEWS
+CREATE TABLE public.community_ideas (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    username TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    votes INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE public.community_votes (
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    idea_id UUID REFERENCES public.community_ideas(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, idea_id)
+);
+
+CREATE TABLE public.course_reviews (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    course_id TEXT NOT NULL,
+    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+    body TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, course_id)
+);
+
+-- 5. PERFORMANCE INDEXES
+CREATE INDEX idx_profiles_xp ON public.profiles(xp DESC);
+CREATE INDEX idx_vms_user_course ON public.user_vms(user_id, course_id);
+
+-- 6. LOCK DOWN ROW LEVEL SECURITY (CRITICAL FOR SECURITY)
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_vms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.community_ideas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.community_votes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.course_reviews ENABLE ROW LEVEL SECURITY;
+
+-- Policies: Profiles (Public read, strict self-write)
+CREATE POLICY "Public read profiles" ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+
+-- Policies: VMs (Strict user isolation)
+CREATE POLICY "Manage own VMs" ON public.user_vms FOR ALL USING (auth.uid() = user_id);
+
+-- Policies: Community
+CREATE POLICY "Read ideas" ON public.community_ideas FOR SELECT USING (true);
+CREATE POLICY "Insert own idea" ON public.community_ideas FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Update own idea" ON public.community_ideas FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Manage own votes" ON public.community_votes FOR ALL USING (auth.uid() = user_id);
+
+-- Policies: Reviews
+CREATE POLICY "Read reviews" ON public.course_reviews FOR SELECT USING (true);
+CREATE POLICY "Insert own review" ON public.course_reviews FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Update own review" ON public.course_reviews FOR UPDATE USING (auth.uid() = user_id);
+
+-- 7. REAL LEADERBOARD VIEW
+CREATE OR REPLACE VIEW public.leaderboard AS
+SELECT 
+    id, username, callsign, xp, level, accent_color,
+    ARRAY_LENGTH(completed_courses, 1) AS courses_completed
+FROM public.profiles
+ORDER BY xp DESC;

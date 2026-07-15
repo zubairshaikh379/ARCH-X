@@ -1,0 +1,325 @@
+You are now the lead creative frontend engineer and UI/UX architect for my project ARCH-X.
+
+First, analyze the entire existing GitHub repository that is connected to this Replit workspace.
+
+Before modifying anything:
+1. Understand the current tech stack, folder structure, components, assets, animations, routing, backend connections, APIs, and dependencies.
+2. Do not destroy existing working functionality.
+3. Identify technical debt, security issues, performance issues, broken components, bad practices, unused dependencies, and fix them while implementing the redesign.
+4. Keep the code production-ready.
+
+The goal:
+Transform ARCH-X into a premium futuristic cybersecurity platform website with a cinematic first impression.
+
+The design direction:
+Think:
+- futuristic cybersecurity command center
+- deep space / galaxy atmosphere
+- premium creative agency landing page
+- cinematic game intro
+- advanced AI/security platform
+
+Use the provided references only as inspiration:
+- Innovart Preloader: cinematic loading sequence, progress feeling, minimal futuristic UI
+- Moon Light E-commerce: smooth scrolling, immersive atmosphere, space environment
+
+Do NOT copy their exact designs.
+Create an original ARCH-X identity.
+
+====================================================
+PART 1 — CINEMATIC PRELOADER EXPERIENCE
+====================================================
+
+Create a full-screen entry preloader that appears when users open the website.
+
+The sequence:
+
+Stage 1:
+A dark space environment appears.
+
+Background:
+- deep black/blue galaxy
+- subtle stars
+- particles
+- futuristic atmosphere
+- smooth camera movement
+
+Add a premium loading interface:
+- percentage counter
+- system initialization text
+- futuristic terminal style messages
+
+Example:
+"INITIALIZING ARCH-X SYSTEM..."
+"LOADING SECURITY MODULES..."
+"CONNECTING NEURAL CORE..."
+"ACCESS GRANTED"
+
+The loading should feel like entering a cybersecurity operating system.
+
+Stage 2:
+Create a custom ARCH-X logo reveal animation.
+
+Current logo needs improvement.
+
+Use the existing ARCH-X logo asset but modify presentation:
+
+Requirements:
+- remove unwanted white background
+- make logo transparent
+- adapt logo colors to match the dark futuristic theme
+- create metallic/glass/neon appearance
+- add subtle glow
+- make it look like a premium 3D emblem
+
+Stage 3:
+Dragon + logo animation.
+
+Concept:
+
+A futuristic dragon appears from darkness.
+
+Animation:
+
+- Dragon emerges from particles/shadows
+- Dragon opens its mouth
+- ARCH-X symbol/name appears as a glowing energy object
+- Dragon consumes/encircles the logo
+- Dragon wraps around the logo
+- Energy pulse happens
+- Massive cinematic "BOOM" reveal
+- Logo becomes the final ARCH-X emblem
+
+The dragon animation should feel:
+- powerful
+- elegant
+- futuristic
+- not cartoonish
+
+Use:
+- Three.js if suitable
+- React Three Fiber if suitable
+- GSAP animations
+- Framer Motion
+- WebGL effects
+
+If a full 3D dragon model is too heavy:
+Create a convincing alternative using:
+- particles
+- SVG paths
+- animated silhouette
+- shader effects
+- glowing dragon outline
+
+Prioritize performance.
+
+After the reveal:
+Smooth transition from preloader into homepage.
+
+Use:
+- fade transition
+- camera movement
+- particle dissolve
+
+====================================================
+PART 2 — HOMEPAGE HERO SECTION
+====================================================
+
+Rebuild the homepage hero section.
+
+Create:
+
+Background:
+- animated galaxy
+- stars
+- nebula effects
+- futuristic particles
+
+Use:
+- optimized open-source assets
+- procedural effects
+- freely available resources
+
+Do not use copyrighted paid assets.
+
+Main centerpiece:
+
+A large Earth/globe model.
+
+The Earth should feel like:
+- cybersecurity planet
+- digital intelligence system
+- protected network world
+
+Effects:
+- rotating earth
+- glowing network lines
+- cyber grid
+- subtle data streams
+- atmospheric glow
+
+Behind Earth:
+- galaxy animation
+- space depth
+- cinematic lighting
+
+The result should feel like:
+"ARCH-X is a global cybersecurity intelligence platform."
+
+====================================================
+PART 3 — SCROLL EXPERIENCE
+====================================================
+
+Implement premium smooth scrolling.
+
+Use:
+- GSAP ScrollTrigger
+or
+- Lenis smooth scrolling
+or another production-grade solution.
+
+Scrolling should include:
+
+- parallax galaxy movement
+- Earth movement
+- section transitions
+- cinematic reveals
+- floating UI elements
+
+Avoid basic webpage scrolling.
+
+Each section should feel connected.
+
+====================================================
+PART 4 — NAVBAR REDESIGN
+====================================================
+
+The current navbar does not match the vision.
+
+Create a futuristic navbar.
+
+Requirements:
+
+Do NOT:
+- make it invisible
+- use same color as background
+- ruin readability
+
+Create:
+- glassmorphism
+- dark transparent panel
+- subtle border
+- neon highlights
+- premium spacing
+
+Navbar should feel like a spacecraft interface.
+
+Include:
+- ARCH-X logo
+- navigation links
+- CTA button
+
+Animations:
+- hover glow
+- smooth transitions
+- scroll-based changes
+
+====================================================
+PART 5 — GLOBAL DESIGN SYSTEM
+====================================================
+
+Create a consistent theme:
+
+Colors:
+Primary:
+- black
+- deep space blue
+- graphite
+- metallic silver
+
+Accent:
+- electric cyan
+- subtle neon blue
+
+Typography:
+Use premium futuristic fonts.
+
+Avoid:
+- generic templates
+- excessive gradients
+- childish effects
+
+The feeling should be:
+"Apple level polish + Cybersecurity + Space technology"
+
+====================================================
+PART 6 — PERFORMANCE + SECURITY
+====================================================
+
+While building:
+
+Check:
+
+Frontend:
+- unnecessary renders
+- animation performance
+- bundle size
+- lazy loading
+- image optimization
+
+Security:
+- exposed API keys
+- unsafe environment variables
+- insecure authentication handling
+- dependency vulnerabilities
+- XSS risks
+- bad storage practices
+
+Fix every issue you discover.
+
+Do not just report problems.
+Solve them.
+
+====================================================
+PART 7 — CODE QUALITY
+====================================================
+
+Requirements:
+
+- Clean reusable components
+- Proper TypeScript types
+- Maintainable folder structure
+- Comments only where useful
+- Production-quality code
+
+Use existing libraries when possible.
+
+Preferred:
+- React
+- TypeScript
+- Tailwind CSS
+- Framer Motion
+- GSAP
+- Three.js
+- React Three Fiber
+
+====================================================
+FINAL REQUIREMENT
+====================================================
+
+Do not stop after creating a mockup.
+
+Actually implement everything.
+
+Run the project.
+Fix all errors.
+Check responsiveness.
+
+The final result should look like a world-class cybersecurity startup landing page.
+
+Before finishing:
+1. Verify build works.
+2. Verify animations work smoothly.
+3. Verify no security warnings remain.
+4. Verify mobile responsiveness.
+5. Summarize all changes made.
