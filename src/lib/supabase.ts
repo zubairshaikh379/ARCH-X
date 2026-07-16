@@ -6,13 +6,20 @@ import { createClient } from "@supabase/supabase-js";
 // privileges beyond what RLS policies grant — but we no longer hardcode a
 // fallback so a misconfigured environment fails loudly instead of silently
 // pointing at a specific project.
-const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_URL =
+  (import.meta as any).env?.VITE_SUPABASE_URL || "https://placeholder.supabase.co";
+const SUPABASE_ANON_KEY =
+  (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || "placeholder-anon-key";
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error(
-    "Supabase env vars missing (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY). " +
-    "Auth and data features will not work until they are set."
+export const supabaseConfigured =
+  SUPABASE_URL !== "https://placeholder.supabase.co" &&
+  SUPABASE_ANON_KEY !== "placeholder-anon-key";
+
+if (!supabaseConfigured) {
+  console.warn(
+    "[ARCH-X] Supabase env vars missing — create a .env file with " +
+    "VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY. " +
+    "Auth and data features are disabled until they are set."
   );
 }
 

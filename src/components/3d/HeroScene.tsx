@@ -197,12 +197,11 @@ export default function HeroScene({ className = "" }: HeroSceneProps) {
     canvas.addEventListener("pointerleave", onUp);
 
     // ── Loop ─────────────────────────────────────────────────────────────────────
-    const timer = new THREE.Timer();
+    const clock = new THREE.Clock();
     let rafId = 0;
     const animate = () => {
       rafId = requestAnimationFrame(animate);
-      timer.update();
-      const t = timer.getElapsed();
+      const t = clock.getElapsedTime();
 
       if (!dragging) {
         // inertia decay + idle auto-spin
@@ -260,7 +259,6 @@ export default function HeroScene({ className = "" }: HeroSceneProps) {
 
     return () => {
       cancelAnimationFrame(rafId);
-      timer.dispose();
       canvas.removeEventListener("pointerdown", onDown);
       canvas.removeEventListener("pointermove", onMove);
       canvas.removeEventListener("pointerup", onUp);
