@@ -10,4 +10,5 @@ coverage/
 artifacts/
 .next/
 .env.local
-artifacts/
+package-lock.json
+
