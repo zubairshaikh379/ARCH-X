@@ -43,13 +43,16 @@ export default function HeroScene({ className = "" }: HeroSceneProps) {
 
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+      renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: "high-performance" });
     } catch { setWebglOk(false); return; }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(canvas.offsetWidth, canvas.offsetHeight, false);
+    // Use clientWidth/clientHeight (layout-resolved) for correct initial size
+    const initW = canvas.clientWidth || window.innerWidth;
+    const initH = canvas.clientHeight || window.innerHeight;
+    renderer.setSize(initW, initH, false);
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, canvas.offsetWidth / canvas.offsetHeight, 0.1, 100);
+    const camera = new THREE.PerspectiveCamera(45, initW / initH, 0.1, 100);
     camera.position.z = 4.6;
 
     const R = 1.5;
@@ -194,11 +197,12 @@ export default function HeroScene({ className = "" }: HeroSceneProps) {
     canvas.addEventListener("pointerleave", onUp);
 
     // ── Loop ─────────────────────────────────────────────────────────────────────
-    const clock = new THREE.Clock();
+    const timer = new THREE.Timer();
     let rafId = 0;
     const animate = () => {
       rafId = requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
+      timer.update();
+      const t = timer.getElapsed();
 
       if (!dragging) {
         // inertia decay + idle auto-spin
@@ -256,6 +260,7 @@ export default function HeroScene({ className = "" }: HeroSceneProps) {
 
     return () => {
       cancelAnimationFrame(rafId);
+      timer.dispose();
       canvas.removeEventListener("pointerdown", onDown);
       canvas.removeEventListener("pointermove", onMove);
       canvas.removeEventListener("pointerup", onUp);

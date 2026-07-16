@@ -20,6 +20,8 @@ export function useLenis(enabled = true) {
       easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       smoothWheel: true,
       touchMultiplier: 1.6,
+      wrapper: document.documentElement,
+      content: document.body,
     });
     lenisRef.current = lenis;
 

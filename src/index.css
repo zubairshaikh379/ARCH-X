@@ -645,7 +645,7 @@ html.lenis, html.lenis body { height: auto; }
   width: 34px; height: 34px;
   border: 1.5px solid rgba(200, 204, 210, 0.6);
   transform: translate(-50%, -50%);
-  transition: width 0.22s ease, height 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+  transition: width 0.14s ease, height 0.14s ease, border-color 0.14s ease, background 0.14s ease;
 }
 .cursor-ring.is-hover {
   width: 54px; height: 54px;

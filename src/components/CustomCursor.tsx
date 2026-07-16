@@ -36,8 +36,8 @@ export default function CustomCursor() {
     const onUp = () => ring.style.setProperty("scale", "1");
 
     const loop = () => {
-      rx += (mx - rx) * 0.18;
-      ry += (my - ry) * 0.18;
+      rx += (mx - rx) * 0.28;
+      ry += (my - ry) * 0.28;
       ring.style.transform = `translate(${rx}px, ${ry}px) translate(-50%, -50%)`;
       raf = requestAnimationFrame(loop);
     };
