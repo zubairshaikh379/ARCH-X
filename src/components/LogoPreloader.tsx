@@ -1,432 +1,379 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { playBootSequence } from "../lib/bootSound";
+import { gsap } from "gsap";
 
-/**
- * ARCH-X — "Cyber Security System Initialization" entry sequence.
- *
- * A three-act boot narrative, each act a distinct metaphor for "the system is
- * coming online," fused into one continuous story instead of three separate
- * screens:
- *
- *   ACT I   TERMINAL BOOT     — a real-looking diagnostic log scrolls while
- *                               the kernel comes up in the dark.
- *   ACT II  SIGNATURE SCAN    — a radar sweep locks onto the ARCH-X mark,
- *                               sharpening across passes until "LOCKED".
- *   ACT III DECRYPT           — the locked mark is briefly corrupted
- *                               (RGB-split / static) then a visible
- *                               decryption stabilizes it into the clean,
- *                               final brand mark. Wordmark + bloom follow,
- *                               then the whole scene dissolves into the app.
- *
- * The shipped logo (public/ARCH-X LOGO.svg) is a flattened raster trace with
- * no separable layers, so "construction" here is expressed through motion
- * (blur/opacity/corruption/resolve) applied to the real asset rather than
- * hand-drawn stroke paths.
- *
- * Stack note: repo is Vite + React (not Next.js); Motion v12 `motion/react`
- * is the same API. Honors prefers-reduced-motion.
- */
+// ── Vector helpers ────────────────────────────────────────────────────────────
+class Vector2D {
+  constructor(public x: number, public y: number) {}
+  static random(min: number, max: number): number {
+    return min + Math.random() * (max - min);
+  }
+}
+class Vector3D {
+  constructor(public x: number, public y: number, public z: number) {}
+}
 
-// ── Timeline (ms from mount) ─────────────────────────────────────────
-// 1 terminal  2 radar-emerge  3 radar-lock  4 decrypt  5 reveal  6 dissolve
-const T = {
-  boot: 0,
-  radarEmerge: 14500,
-  radarLock: 23000,
-  decrypt: 37500,
-  reveal: 45500,
-  dissolve: 55000,
-  done: 63000,
-};
+// ── Star ──────────────────────────────────────────────────────────────────────
+class Star {
+  private dx: number;
+  private dy: number;
+  private spiralLocation: number;
+  private strokeWeightFactor: number;
+  private z: number;
+  private angle: number;
+  private distance: number;
+  private rotationDirection: number;
+  private expansionRate: number;
+  private finalScale: number;
 
-const LOGS = [
-  "> INIT ARCH-X KERNEL v8.4.2",
-  "> MOUNTING SECURE ENCLAVE... OK",
-  "> ESTABLISHING ZERO-TRUST TUNNEL... CONNECTED",
-  "> SCANNING FOR SIGNATURE...",
-];
+  constructor(cameraZ: number, cameraTravelDistance: number) {
+    this.angle = Math.random() * Math.PI * 2;
+    this.distance = 30 * Math.random() + 15;
+    this.rotationDirection = Math.random() > 0.5 ? 1 : -1;
+    this.expansionRate = 1.2 + Math.random() * 0.8;
+    this.finalScale = 0.7 + Math.random() * 0.6;
+    this.dx = this.distance * Math.cos(this.angle);
+    this.dy = this.distance * Math.sin(this.angle);
+    this.spiralLocation = (1 - Math.pow(1 - Math.random(), 3.0)) / 1.3;
+    this.z = Vector2D.random(0.5 * cameraZ, cameraTravelDistance + cameraZ);
+    const lerp = (s: number, e: number, t: number) => s * (1 - t) + e * t;
+    this.z = lerp(this.z, cameraTravelDistance / 2, 0.3 * this.spiralLocation);
+    this.strokeWeightFactor = Math.pow(Math.random(), 2.0);
+  }
 
+  render(p: number, c: AnimationController) {
+    const spiralPos = c.spiralPath(this.spiralLocation);
+    const q = p - this.spiralLocation;
+    if (q <= 0) return;
+
+    const dp = c.constrain(4 * q, 0, 1);
+    const le = dp;
+    const ee = c.easeOutElastic(dp);
+    const pe = Math.pow(dp, 2);
+
+    let easing: number;
+    if (dp < 0.3) easing = c.lerp(le, pe, dp / 0.3);
+    else if (dp < 0.7) easing = c.lerp(pe, ee, (dp - 0.3) / 0.4);
+    else easing = ee;
+    void easing;
+
+    let screenX: number, screenY: number;
+    if (dp < 0.3) {
+      const t = dp / 0.3;
+      screenX = c.lerp(spiralPos.x, spiralPos.x + this.dx * 0.3, t);
+      screenY = c.lerp(spiralPos.y, spiralPos.y + this.dy * 0.3, t);
+    } else if (dp < 0.7) {
+      const t = (dp - 0.3) / 0.4;
+      const cs = Math.sin(t * Math.PI) * this.rotationDirection * 1.5;
+      const bx = spiralPos.x + this.dx * 0.3, by = spiralPos.y + this.dy * 0.3;
+      const tx = spiralPos.x + this.dx * 0.7, ty = spiralPos.y + this.dy * 0.7;
+      screenX = c.lerp(bx, tx, t) + (-this.dy * 0.4 * cs) * t;
+      screenY = c.lerp(by, ty, t) + (this.dx * 0.4 * cs) * t;
+    } else {
+      const t = (dp - 0.7) / 0.3;
+      const bx = spiralPos.x + this.dx * 0.7, by = spiralPos.y + this.dy * 0.7;
+      const td = this.distance * this.expansionRate * 1.5;
+      const sa = this.angle + 1.2 * this.rotationDirection * t * Math.PI;
+      screenX = c.lerp(bx, spiralPos.x + td * Math.cos(sa), t);
+      screenY = c.lerp(by, spiralPos.y + td * Math.sin(sa), t);
+    }
+
+    const vx = (this.z - (c as any)._cameraZ) * screenX / (c as any)._viewZoom;
+    const vy = (this.z - (c as any)._cameraZ) * screenY / (c as any)._viewZoom;
+
+    let sm = 1.0;
+    if (dp < 0.6) sm = 1.0 + dp * 0.2;
+    else { const t = (dp - 0.6) / 0.4; sm = 1.2 * (1 - t) + this.finalScale * t; }
+
+    c.showProjectedDot(new Vector3D(vx, vy, this.z), 8.5 * this.strokeWeightFactor * sm);
+  }
+}
+
+// ── AnimationController ───────────────────────────────────────────────────────
+class AnimationController {
+  private timeline: gsap.core.Timeline;
+  public time = 0;
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private size: number;
+  private stars: Star[] = [];
+
+  readonly _cameraZ = -400;
+  readonly _cameraTravelDistance = 3400;
+  readonly _viewZoom = 100;
+  private readonly _startDotYOffset = 28;
+  private readonly _changeEventTime = 0.32;
+  private readonly _numberOfStars = 5000;
+  private readonly _trailLength = 80;
+
+  constructor(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number, size: number) {
+    this.canvas = canvas;
+    this.ctx = ctx;
+    this.size = size;
+    this.timeline = gsap.timeline({ repeat: -1 });
+
+    // deterministic star positions
+    const orig = Math.random;
+    let seed = 1234;
+    Math.random = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    for (let i = 0; i < this._numberOfStars; i++)
+      this.stars.push(new Star(this._cameraZ, this._cameraTravelDistance));
+    Math.random = orig;
+
+    void dpr; // dpr scaling handled by caller
+    this.timeline.to(this, { time: 1, duration: 15, repeat: -1, ease: "none", onUpdate: () => this.render() });
+  }
+
+  ease(p: number, g: number) {
+    return p < 0.5 ? 0.5 * Math.pow(2 * p, g) : 1 - 0.5 * Math.pow(2 * (1 - p), g);
+  }
+  easeOutElastic(x: number) {
+    if (x <= 0) return 0; if (x >= 1) return 1;
+    return Math.pow(2, -8 * x) * Math.sin((x * 8 - 0.75) * (2 * Math.PI) / 4.5) + 1;
+  }
+  map(v: number, s1: number, e1: number, s2: number, e2: number) {
+    return s2 + (e2 - s2) * ((v - s1) / (e1 - s1));
+  }
+  constrain(v: number, mn: number, mx: number) { return Math.min(Math.max(v, mn), mx); }
+  lerp(s: number, e: number, t: number) { return s * (1 - t) + e * t; }
+
+  spiralPath(p: number): Vector2D {
+    p = this.constrain(1.2 * p, 0, 1);
+    p = this.ease(p, 1.8);
+    const turns = 6;
+    const theta = 2 * Math.PI * turns * Math.sqrt(p);
+    const r = 170 * Math.sqrt(p);
+    return new Vector2D(r * Math.cos(theta), r * Math.sin(theta) + this._startDotYOffset);
+  }
+
+  showProjectedDot(pos: Vector3D, sf: number) {
+    const t2 = this.constrain(this.map(this.time, this._changeEventTime, 1, 0, 1), 0, 1);
+    const camZ = this._cameraZ + this.ease(Math.pow(t2, 1.2), 1.8) * this._cameraTravelDistance;
+    if (pos.z > camZ) {
+      const d = pos.z - camZ;
+      const x = this._viewZoom * pos.x / d;
+      const y = this._viewZoom * pos.y / d;
+      const sw = 400 * sf / d;
+      this.ctx.lineWidth = sw;
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, 0.5, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+  }
+
+  private drawTrail(t1: number) {
+    for (let i = 0; i < this._trailLength; i++) {
+      const f = this.map(i, 0, this._trailLength, 1.1, 0.1);
+      const sw = (1.3 * (1 - t1) + 3.0 * Math.sin(Math.PI * t1)) * f;
+      this.ctx.fillStyle = "white";
+      this.ctx.lineWidth = sw;
+      const pt = t1 - 0.00015 * i;
+      const pos = this.spiralPath(pt);
+      const off = new Vector2D(pos.x + 5, pos.y + 5);
+      const mid = new Vector2D((pos.x + off.x) / 2, (pos.y + off.y) / 2);
+      const dx = pos.x - mid.x, dy = pos.y - mid.y;
+      const angle = Math.atan2(dy, dx);
+      const o = i % 2 === 0 ? -1 : 1;
+      const rr = Math.sqrt(dx * dx + dy * dy);
+      const ep = this.easeOutElastic(Math.sin(this.time * Math.PI * 2) * 0.5 + 0.5);
+      const rx = mid.x + rr * Math.cos(angle + o * Math.PI * ep);
+      const ry = mid.y + rr * Math.sin(angle + o * Math.PI * ep);
+      this.ctx.beginPath();
+      this.ctx.arc(rx, ry, sw / 2, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+  }
+
+  render() {
+    const ctx = this.ctx;
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, this.size, this.size);
+    ctx.save();
+    ctx.translate(this.size / 2, this.size / 2);
+    const t1 = this.constrain(this.map(this.time, 0, this._changeEventTime + 0.25, 0, 1), 0, 1);
+    const t2 = this.constrain(this.map(this.time, this._changeEventTime, 1, 0, 1), 0, 1);
+    ctx.rotate(-Math.PI * this.ease(t2, 2.7));
+    this.drawTrail(t1);
+    ctx.fillStyle = "white";
+    for (const s of this.stars) s.render(t1, this);
+    // center dot
+    if (this.time > this._changeEventTime) {
+      const dy = this._cameraZ * this._startDotYOffset / this._viewZoom;
+      this.showProjectedDot(new Vector3D(0, dy, this._cameraTravelDistance), 2.5);
+    }
+    ctx.restore();
+  }
+
+  destroy() { this.timeline.kill(); }
+}
+
+// ── Props ─────────────────────────────────────────────────────────────────────
 interface Props {
   onDone: () => void;
-  /** When true, the boot SFX is skipped (user chose to enter without sound). */
   muted?: boolean;
 }
 
-export default function LogoPreloader({ onDone, muted = false }: Props) {
-  const [phase, setPhase] = useState(1);
+// ── Main component ────────────────────────────────────────────────────────────
+export default function LogoPreloader({ onDone }: Props) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const ctrlRef = useRef<AnimationController | null>(null);
   const doneRef = useRef(false);
-  const stopSoundRef = useRef<(() => void) | null>(null);
-
-  const reduce =
-    typeof window !== "undefined" &&
-    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const [ready, setReady] = useState(false);   // fade-in the text after canvas starts
+  const [exiting, setExiting] = useState(false);
 
   const finish = () => {
     if (doneRef.current) return;
     doneRef.current = true;
-    stopSoundRef.current?.();
-    onDone();
+    setExiting(true);
+    setTimeout(onDone, 700);
   };
 
+  // canvas setup
   useEffect(() => {
-    if (reduce) {
-      setPhase(5);
-      const t = setTimeout(finish, 650);
-      return () => clearTimeout(t);
-    }
-    if (!muted) stopSoundRef.current = playBootSequence();
-    const timers = [
-      setTimeout(() => setPhase(2), T.radarEmerge),
-      setTimeout(() => setPhase(3), T.radarLock),
-      setTimeout(() => setPhase(4), T.decrypt),
-      setTimeout(() => setPhase(5), T.reveal),
-      setTimeout(() => setPhase(6), T.dissolve),
-      setTimeout(finish, T.done),
-    ];
-    return () => { timers.forEach(clearTimeout); stopSoundRef.current?.(); };
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = window.innerWidth, h = window.innerHeight;
+    const size = Math.max(w, h);
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+    ctx.scale(dpr, dpr);
+    ctrlRef.current = new AnimationController(canvas, ctx, dpr, size);
+    setTimeout(() => setReady(true), 300);
+    return () => { ctrlRef.current?.destroy(); ctrlRef.current = null; };
+  }, []);
+
+  // auto-exit after 5.5 s
+  useEffect(() => {
+    const t = setTimeout(finish, 5500);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // keyboard skip
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") finish(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") finish(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const status =
-    phase === 1 ? "System boot"
-    : phase === 2 ? "Scanning signature"
-    : phase === 3 ? "Signature locked"
-    : phase === 4 ? "Decrypting core"
-    : phase === 5 ? "ARCH-X system online"
-    : "Entering";
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="boot"
-        initial={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.5 }}
-        onClick={finish}
-        role="button"
-        tabIndex={-1}
-        aria-label="Skip intro"
-      >
-        <div className="boot__noise" />
-        <div style={{ position: "fixed", top: 0, left: 0, color: "lime", fontSize: 24, zIndex: 99999, background: "black" }}>
-          reduce={String(reduce)} phase={phase}
-        </div>
-        <BackgroundParticles active={phase < 6} />
-        <RadarField active={phase >= 2 && phase < 6} locked={phase >= 3} />
+    <motion.div
+      style={{ position: "fixed", inset: 0, zIndex: 9998, background: "#000", overflow: "hidden", cursor: "pointer" }}
+      initial={{ opacity: 1 }}
+      animate={{ opacity: exiting ? 0 : 1 }}
+      transition={{ duration: 0.7, ease: "easeInOut" }}
+      onClick={finish}
+      role="button"
+      tabIndex={-1}
+      aria-label="Skip intro"
+    >
+      {/* spiral canvas — offset so centre of canvas is screen centre */}
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: "absolute",
+          top: "50%", left: "50%",
+          transform: "translate(-50%, -50%)",
+          pointerEvents: "none",
+        }}
+      />
 
-        <motion.div
-          className="boot__stage"
-          animate={
-            phase === 5 ? { scale: [0.98, 1.06, 1.03] }
-            : phase === 6 ? { scale: 1.12, opacity: 0 }
-            : { scale: 1 }
-          }
-          transition={{ duration: phase === 6 ? 0.7 : 0.6, ease: "easeOut" }}
-        >
-          {/* ACT I — terminal boot log, dark screen before the mark appears */}
-          {phase === 1 && <TerminalLog />}
+      {/* centred overlay: logo + wordmark + status */}
+      <AnimatePresence>
+        {ready && (
+          <motion.div
+            key="overlay"
+            style={{
+              position: "absolute", inset: 0,
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              gap: "1.4rem", pointerEvents: "none",
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8 }}
+          >
+            {/* logo */}
+            <motion.img
+              src="/arch-x-logo.svg"
+              alt="ARCH-X"
+              draggable={false}
+              style={{ width: "min(120px,22vw)", height: "min(120px,22vw)", objectFit: "contain", filter: "drop-shadow(0 0 28px rgba(148,163,184,0.4))" }}
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.9, ease: "easeOut" }}
+            />
 
-          {/* ACT II/III — the real mark: blurry -> locked -> corrupted -> resolved */}
-          {phase >= 2 && phase < 6 && (
-            <MarkStage phase={phase} />
-          )}
+            {/* ARCH-X wordmark */}
+            <motion.div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontWeight: 800,
+                fontSize: "clamp(2.2rem, 8vw, 4rem)",
+                letterSpacing: "0.55em",
+                textIndent: "0.55em",
+                color: "#e2e8f0",           /* slate-200 — bright, readable */
+                textShadow: "0 0 40px rgba(148,163,184,0.5), 0 0 80px rgba(148,163,184,0.2)",
+              }}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
+            >
+              ARCH-X
+            </motion.div>
 
-          {/* Final bloom behind the resolved mark */}
-          <AnimatePresence>
-            {phase === 5 && (
-              <motion.div
-                className="boot__bloom"
-                initial={{ opacity: 0, scale: 0.85 }}
-                animate={{ opacity: [0, 1, 0.7], scale: 1 }}
-                transition={{ duration: 0.8 }}
-              />
-            )}
-          </AnimatePresence>
-
-          {/* dissolve shards break apart on exit */}
-          {phase === 6 && <DissolveShards />}
-        </motion.div>
-
-        <motion.div
-          className="boot__word"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: phase >= 3 ? 1 : 0, y: phase >= 3 ? 0 : 10 }}
-          transition={{ duration: 0.5 }}
-        >
-          ARCH-X
-        </motion.div>
-
-        <div className="boot__status">
-          <span className="dot" />
-          <AnimatePresence mode="wait">
-            <motion.span
-              key={status}
+            {/* status line */}
+            <motion.div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.6rem",
+                letterSpacing: "0.38em",
+                textTransform: "uppercase",
+                color: "#94a3b8",            /* slate-400 */
+                display: "flex", alignItems: "center", gap: "0.55rem",
+              }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
             >
-              {status}
-            </motion.span>
-          </AnimatePresence>
-        </div>
-
-        <motion.div
-          className="boot__skip"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: phase >= 2 && phase < 6 ? 0.6 : 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          Click or press Esc to skip
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  );
-}
-
-// ── ACT I — terminal boot log ────────────────────────────────────────
-function TerminalLog() {
-  const [visible, setVisible] = useState(0);
-  useEffect(() => {
-    const timers = LOGS.map((_, i) =>
-      setTimeout(() => setVisible(i + 1), 180 + i * 260)
-    );
-    return () => timers.forEach(clearTimeout);
-  }, []);
-  return (
-    <div
-      className="absolute font-mono text-[10px] sm:text-xs text-[var(--cyber)] tracking-wide opacity-80 text-left"
-      style={{ left: "-4.5rem", bottom: "0.5rem", width: "min(320px, 78vw)" }}
-    >
-      {LOGS.slice(0, visible).map((log, i) => (
-        <motion.div
-          key={i}
-          initial={{ opacity: 0, x: -8 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.15 }}
-        >
-          {log}
-        </motion.div>
-      ))}
-      {visible < LOGS.length && (
-        <motion.span
-          animate={{ opacity: [1, 0, 1] }}
-          transition={{ repeat: Infinity, duration: 0.8 }}
-        >
-          _
-        </motion.span>
-      )}
-    </div>
-  );
-}
-
-// ── ACT II + III — the mark: emerge -> lock -> corrupt -> resolve ────
-function MarkStage({ phase }: { phase: number }) {
-  const [hash, setHash] = useState("");
-  useEffect(() => {
-    if (phase !== 4) return;
-    const t = setInterval(() => {
-      setHash(
-        Array.from({ length: 16 }, () =>
-          Math.floor(Math.random() * 16).toString(16).toUpperCase()
-        ).join("")
-      );
-    }, 50);
-    return () => clearInterval(t);
-  }, [phase]);
-
-  const emerging = phase === 2;
-  const locked = phase === 3;
-  const corrupting = phase === 4;
-  const resolved = phase === 5;
-
-  return (
-    <div className="relative w-full h-full flex items-center justify-center">
-      <motion.div
-        className="absolute inset-0 flex items-center justify-center"
-        animate={
-          corrupting
-            ? { x: [-10, 15, -8, 12, -5, 5, 0], y: [5, -5, 8, -8, 2, -2, 0] }
-            : { x: 0, y: 0 }
-        }
-        transition={{ repeat: corrupting ? Infinity : 0, duration: 0.1 }}
-      >
-        <motion.img
-          className="boot__logo"
-          src="/ARCH-X%20LOGO.svg"
-          alt="ARCH-X"
-          draggable={false}
-          style={{ outline: "4px solid red", background: "rgba(255,0,0,0.3)" }}
-          initial={{ opacity: 0.15, filter: "blur(14px) brightness(0.4) saturate(0%)", scale: 0.9 }}
-          animate={{
-            opacity: emerging ? 0.45 : locked ? 0.95 : corrupting ? 0.85 : 1,
-            filter: emerging
-              ? "blur(7px) brightness(0.6) saturate(40%)"
-              : locked
-                ? "blur(0px) brightness(1) saturate(100%) drop-shadow(0 0 18px rgba(56,230,255,0.55))"
-                : corrupting
-                  ? "saturate(0%) contrast(200%) brightness(1.1)"
-                  : "blur(0px) brightness(1)",
-            scale: resolved || locked ? 1 : 0.94,
-          }}
-          transition={{ duration: 0.5 }}
-        />
-
-        {/* RGB-split glitch layers, only during corruption */}
-        {corrupting && (
-          <>
-            <motion.img
-              src="/ARCH-X%20LOGO.svg"
-              className="boot__logo"
-              style={{ mixBlendMode: "screen", opacity: 0.8, filter: "drop-shadow(8px 0 0 rgba(255,0,0,0.8))" }}
-              animate={{ x: [-15, 20] }}
-              transition={{ repeat: Infinity, duration: 0.08, repeatType: "mirror" }}
-            />
-            <motion.img
-              src="/ARCH-X%20LOGO.svg"
-              className="boot__logo"
-              style={{ mixBlendMode: "screen", opacity: 0.8, filter: "drop-shadow(-8px 0 0 rgba(0,255,255,0.8))" }}
-              animate={{ x: [15, -20] }}
-              transition={{ repeat: Infinity, duration: 0.12, repeatType: "mirror" }}
-            />
-          </>
-        )}
-      </motion.div>
-
-      {/* target-lock brackets, from lock through resolve */}
-      <AnimatePresence>
-        {(locked || corrupting) && (
-          <motion.div
-            className="absolute inset-[-8%] pointer-events-none"
-            initial={{ scale: 1.4, opacity: 0 }}
-            animate={{ scale: 1, opacity: corrupting ? 0.45 : 0.85 }}
-            exit={{ opacity: 0 }}
-            transition={{ type: "spring", stiffness: 120, damping: 15 }}
-          >
-            <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2" style={{ borderColor: "var(--cyber)" }} />
-            <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2" style={{ borderColor: "var(--cyber)" }} />
-            <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2" style={{ borderColor: "var(--cyber)" }} />
-            <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2" style={{ borderColor: "var(--cyber)" }} />
+              <span style={{
+                width: 6, height: 6, borderRadius: "50%",
+                background: "#94a3b8",
+                boxShadow: "0 0 8px 2px rgba(148,163,184,0.5)",
+                display: "inline-block",
+                animation: "preloader-blink 1.2s steps(1) infinite",
+              }} />
+              Initializing Cyber Range
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* decrypt readout, only during corruption */}
-      {corrupting && (
-        <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 whitespace-nowrap">
-          <div className="font-mono text-[10px] tracking-[0.25em] text-[#f87171]">
-            CORRUPTION DETECTED
-          </div>
-          <div className="font-mono text-[9px] text-gray-400 tracking-[0.2em] bg-black/40 px-2 py-0.5 border border-white/10">
-            HASH: {hash}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Ambient background: radar rings + sweep (runs through Acts I-III) ─
-function RadarField({ active, locked }: { active: boolean; locked: boolean }) {
-  return (
-    <div
-      className="absolute inset-0 flex items-center justify-center pointer-events-none"
-      style={{ opacity: active ? 1 : 0, transition: "opacity 0.6s" }}
-    >
-      <div
-        className="absolute opacity-[0.12]"
+      {/* skip hint */}
+      <motion.div
         style={{
-          width: 900, height: 900, borderRadius: "50%",
-          border: "1px solid var(--cyber)",
+          position: "absolute", bottom: "1.6rem", left: "50%", transform: "translateX(-50%)",
+          fontFamily: "var(--font-mono)", fontSize: "0.55rem",
+          letterSpacing: "0.22em", textTransform: "uppercase", color: "#475569",
+          pointerEvents: "none",
         }}
-      />
-      <div
-        className="absolute opacity-20"
-        style={{ width: 560, height: 560, borderRadius: "50%", border: "1px solid var(--cyber)" }}
-      />
-      <div
-        className="absolute opacity-30"
-        style={{ width: 300, height: 300, borderRadius: "50%", border: "1px solid var(--cyber)" }}
-      />
-      {!locked && (
-        <motion.div
-          className="absolute"
-          style={{ width: 900, height: 900, borderRadius: "50%" }}
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
-        >
-          <div
-            className="absolute top-0 right-1/2 w-1/2 h-1/2 origin-bottom-right"
-            style={{
-              background:
-                "conic-gradient(from 0deg at 100% 100%, transparent 0deg, rgba(56,230,255,0.05) 60deg, rgba(56,230,255,0.35) 90deg, var(--cyber) 90deg)",
-            }}
-          />
-        </motion.div>
-      )}
-    </div>
-  );
-}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: ready ? 0.8 : 0 }}
+        transition={{ duration: 0.6, delay: 1 }}
+      >
+        Click or press Esc to skip
+      </motion.div>
 
-/** PHASE 1 — glowing points appear, then drift. */
-function BackgroundParticles({ active }: { active: boolean }) {
-  const pts = useMemo(
-    () => Array.from({ length: 46 }, (_, i) => ({
-      left: `${(Math.sin(i * 12.9) * 0.5 + 0.5) * 100}%`,
-      top:  `${(Math.cos(i * 7.7) * 0.5 + 0.5) * 100}%`,
-      size: 1.5 + (i % 4) * 0.8,
-      delay: (i % 10) * 0.12,
-      dur: 2.2 + (i % 5) * 0.6,
-    })), []);
-  return (
-    <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-      {pts.map((p, i) => (
-        <motion.span
-          key={i}
-          style={{
-            position: "absolute", left: p.left, top: p.top,
-            width: p.size, height: p.size, borderRadius: "50%",
-            background: "var(--cyber)", boxShadow: "0 0 8px 1px var(--cyber-glow)",
-          }}
-          initial={{ opacity: 0, scale: 0 }}
-          animate={active
-            ? { opacity: [0, 0.8, 0.2, 0.8], scale: 1, y: [0, -8, 0] }
-            : { opacity: 0, scale: 0 }}
-          transition={{ delay: p.delay, duration: p.dur, repeat: active ? Infinity : 0, ease: "easeInOut" }}
-        />
-      ))}
-    </div>
-  );
-}
-
-/** PHASE 6 — mark breaks into particles that fly outward (not a fade). */
-function DissolveShards() {
-  const shards = useMemo(
-    () => Array.from({ length: 40 }, (_, i) => {
-      const a = (i / 40) * Math.PI * 2 + Math.sin(i) * 0.4;
-      const dist = 120 + (i % 7) * 26;
-      return { x: Math.cos(a) * dist, y: Math.sin(a) * dist, delay: (i % 6) * 0.03 };
-    }), []);
-  return (
-    <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
-      {shards.map((s, i) => (
-        <motion.span
-          key={i}
-          className="boot__shard"
-          style={{ gridArea: "1 / 1" }}
-          initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-          animate={{ x: s.x, y: s.y, opacity: 0, scale: 0.3 }}
-          transition={{ delay: s.delay, duration: 0.7, ease: "easeOut" }}
-        />
-      ))}
-    </div>
+      <style>{`
+        @keyframes preloader-blink { 0%,60%{opacity:1} 61%,100%{opacity:0.2} }
+      `}</style>
+    </motion.div>
   );
 }

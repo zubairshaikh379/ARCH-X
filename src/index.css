@@ -658,7 +658,7 @@ html.lenis, html.lenis body { height: auto; }
    itself in cyan energy → dragon silhouette materializes → cross-fades to the
    real brand mark → dissolves into the app. See LogoPreloader.tsx.
    Cyan is a fixed "system" color here, independent of the user's accent. */
-:root { --cyber: #38e6ff; --cyber-glow: rgba(56,230,255,0.55); }
+:root { --cyber: #94a3b8; --cyber-glow: rgba(148,163,184,0.45); }
 
 /* ── Standby gate — the INITIALIZE click is the audio-unlock gesture ── */
 .gate {

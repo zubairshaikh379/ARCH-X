@@ -56,7 +56,7 @@ function Root() {
           >
             <img
               className="gate__emblem"
-              src="/ARCH-X%20LOGO.svg"
+              src="/arch-x-logo.svg"
               alt="ARCH-X"
               draggable={false}
             />
