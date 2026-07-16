@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, Fragment } from "react";
-import { motion } from "motion/react";
-import { AnimatePresence } from "motion/react";
+import { motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { supabase } from "./lib/supabase";
 import { ProfileStore, usernameFromSession, signOut } from "./lib/auth";
 import SecurityCard, { useSecurityGaps } from "./components/SecurityCard";

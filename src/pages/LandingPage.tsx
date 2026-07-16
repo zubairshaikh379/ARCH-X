@@ -1,5 +1,5 @@
 import { useRef, Fragment } from "react";
-import { motion, useScroll, useTransform, useSpring } from "motion/react";
+import { motion, useScroll, useTransform, useSpring } from "framer-motion";
 import HeroScene from "../components/3d/HeroScene";
 import Starfield from "../components/3d/Starfield";
 import FloatingMenu from "../components/FloatingMenu";

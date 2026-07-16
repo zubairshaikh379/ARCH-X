@@ -1,6 +1,6 @@
 import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion } from 'framer-motion';
 import App from './App.tsx';
 import CustomCursor from './components/CustomCursor.tsx';
 import LogoPreloader from './components/LogoPreloader.tsx';

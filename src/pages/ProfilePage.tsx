@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion } from "motion/react";
+import { motion } from "framer-motion";
 import { supabase } from "../lib/supabase";
 import { COURSES, MOCK_LEADERBOARD, OSINT_CHALLENGES } from "../data/courses";
 import type { UserProfile } from "../types";

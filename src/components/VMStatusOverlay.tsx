@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import { X, Cpu, MemoryStick, Wifi, Power, ChevronDown, ChevronUp } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface VMStatusOverlayProps {
   vmStatus: "running" | "provisioning";

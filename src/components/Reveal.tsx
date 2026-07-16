@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode, CSSProperties } from "react";
-import { motion, useInView } from "motion/react";
+import { motion, useInView } from "framer-motion";
 
 type Direction = "up" | "down" | "left" | "right" | "scale" | "none";
 

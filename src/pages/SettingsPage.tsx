@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { motion } from "motion/react";
+import { motion } from "framer-motion";
 import SecurityCard from "../components/SecurityCard";
 import { getAuthUser, updateEmail, updatePassword } from "../lib/auth";
 import {

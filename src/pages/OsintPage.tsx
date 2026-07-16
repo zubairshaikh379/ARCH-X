@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence } from "framer-motion";
 import { OSINT_CHALLENGES } from "../data/courses";
 import type { UserProfile } from "../types";
 import { Search, ChevronRight, Lock, Unlock, CheckCircle, Zap, Eye, AlertTriangle } from "lucide-react";

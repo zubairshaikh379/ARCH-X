@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ArchXLogo } from "./ArchXLogo";
 import { ArrowRight } from "lucide-react";
 

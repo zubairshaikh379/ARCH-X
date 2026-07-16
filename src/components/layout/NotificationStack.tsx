@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence } from "framer-motion";
 import { X, CheckCircle, AlertTriangle, Info, XCircle } from "lucide-react";
 import type { Notification } from "../../types";
 

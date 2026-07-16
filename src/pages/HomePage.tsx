@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { motion } from "framer-motion";
 import { COURSES, OSINT_CHALLENGES } from "../data/courses";
 import type { UserProfile, AppTab } from "../types";
 import { BookOpen, Search, Trophy, Zap, ArrowRight, Shield } from "lucide-react";

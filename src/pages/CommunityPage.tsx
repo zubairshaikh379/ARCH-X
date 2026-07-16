@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { FormEvent } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "../lib/supabase";
 import { getAuthUser } from "../lib/auth";
 import type { CommunityIdea, UserProfile } from "../types";

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence } from "framer-motion";
 import { COURSES } from "../data/courses";
 import type { UserProfile, VmStatus } from "../types";
 import Terminal from "../components/courses/Terminal";
