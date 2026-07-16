@@ -11,4 +11,4 @@ artifacts/
 .next/
 .env.local
 package-lock.json
-
+attached_assets/
