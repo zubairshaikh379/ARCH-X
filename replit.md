@@ -10,4 +10,4 @@ Cybersecurity training platform built by Zubair Shaikh — React 19 + TypeScript
 - `vite.config.ts` sets `server.allowedHosts: true` so the Replit iframe proxy can reach the dev server.
 
 ## User preferences
-None recorded yet.
+- Keep responses short and efficient — minimal explanations, do the work, summarize the outcome in 1-2 sentences. No long narration.
