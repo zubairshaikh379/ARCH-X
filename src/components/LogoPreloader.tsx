@@ -1,8 +1,9 @@
+"use client";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { gsap } from "gsap";
 
-// ── Vector helpers ────────────────────────────────────────────────────────────
+// ── Vector helpers ─────────────────────────────────────────────────────────
 class Vector2D {
   constructor(public x: number, public y: number) {}
   static random(min: number, max: number): number {
@@ -13,7 +14,7 @@ class Vector3D {
   constructor(public x: number, public y: number, public z: number) {}
 }
 
-// ── Star ──────────────────────────────────────────────────────────────────────
+// ── Star ───────────────────────────────────────────────────────────────────
 class Star {
   private dx: number;
   private dy: number;
@@ -89,7 +90,7 @@ class Star {
   }
 }
 
-// ── AnimationController ───────────────────────────────────────────────────────
+// ── AnimationController ────────────────────────────────────────────────────
 class AnimationController {
   private timeline: gsap.core.Timeline;
   public time = 0;
@@ -112,7 +113,6 @@ class AnimationController {
     this.size = size;
     this.timeline = gsap.timeline({ repeat: -1 });
 
-    // deterministic star positions
     const orig = Math.random;
     let seed = 1234;
     Math.random = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
@@ -120,7 +120,7 @@ class AnimationController {
       this.stars.push(new Star(this._cameraZ, this._cameraTravelDistance));
     Math.random = orig;
 
-    void dpr; // dpr scaling handled by caller
+    void dpr;
     this.timeline.to(this, { time: 1, duration: 15, repeat: -1, ease: "none", onUpdate: () => this.render() });
   }
 
@@ -186,12 +186,7 @@ class AnimationController {
 
   render() {
     const ctx = this.ctx;
-    // Match the hero's deep-space gradient so the transition feels continuous
-    const bg = ctx.createRadialGradient(this.size / 2, this.size * 0.46, 0, this.size / 2, this.size * 0.46, this.size * 0.88);
-    bg.addColorStop(0, "#07080f");
-    bg.addColorStop(0.58, "#040509");
-    bg.addColorStop(1, "#010103");
-    ctx.fillStyle = bg;
+    ctx.fillStyle = "#000000";
     ctx.fillRect(0, 0, this.size, this.size);
     ctx.save();
     ctx.translate(this.size / 2, this.size / 2);
@@ -201,7 +196,6 @@ class AnimationController {
     this.drawTrail(t1);
     ctx.fillStyle = "white";
     for (const s of this.stars) s.render(t1, this);
-    // center dot
     if (this.time > this._changeEventTime) {
       const dy = this._cameraZ * this._startDotYOffset / this._viewZoom;
       this.showProjectedDot(new Vector3D(0, dy, this._cameraTravelDistance), 2.5);
@@ -212,43 +206,43 @@ class AnimationController {
   destroy() { this.timeline.kill(); }
 }
 
-// ── Props ─────────────────────────────────────────────────────────────────────
+// ── Component ──────────────────────────────────────────────────────────────
 interface Props {
   onDone: () => void;
   muted?: boolean;
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
 export default function LogoPreloader({ onDone }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const ctrlRef = useRef<AnimationController | null>(null);
-  const doneRef = useRef(false);
-  const [ready, setReady] = useState(false);   // fade-in the text after canvas starts
+  const ctrlRef  = useRef<AnimationController | null>(null);
+  const doneRef  = useRef(false);
+  const [ready,   setReady]   = useState(false);
   const [exiting, setExiting] = useState(false);
 
   const finish = () => {
     if (doneRef.current) return;
     doneRef.current = true;
     setExiting(true);
-    setTimeout(onDone, 700);
+    setTimeout(onDone, 800);
   };
 
-  // canvas setup
+  // canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const dpr = window.devicePixelRatio || 1;
-    const w = window.innerWidth, h = window.innerHeight;
+    const dpr  = window.devicePixelRatio || 1;
+    const w    = window.innerWidth;
+    const h    = window.innerHeight;
     const size = Math.max(w, h);
-    canvas.width = size * dpr;
+    canvas.width  = size * dpr;
     canvas.height = size * dpr;
-    canvas.style.width = `${w}px`;
+    canvas.style.width  = `${w}px`;
     canvas.style.height = `${h}px`;
     ctx.scale(dpr, dpr);
     ctrlRef.current = new AnimationController(canvas, ctx, dpr, size);
-    setTimeout(() => setReady(true), 300);
+    setTimeout(() => setReady(true), 400);
     return () => { ctrlRef.current?.destroy(); ctrlRef.current = null; };
   }, []);
 
@@ -259,7 +253,7 @@ export default function LogoPreloader({ onDone }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // keyboard skip
+  // esc to skip
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") finish(); };
     window.addEventListener("keydown", h);
@@ -269,16 +263,20 @@ export default function LogoPreloader({ onDone }: Props) {
 
   return (
     <motion.div
-      style={{ position: "fixed", inset: 0, zIndex: 9998, background: "radial-gradient(125% 125% at 50% 46%, #07080f 0%, #040509 58%, #010103 100%)", overflow: "hidden", cursor: "pointer" }}
+      style={{
+        position: "fixed", inset: 0, zIndex: 9998,
+        background: "#000000",
+        overflow: "hidden", cursor: "pointer",
+      }}
       initial={{ opacity: 1 }}
       animate={{ opacity: exiting ? 0 : 1 }}
-      transition={{ duration: 0.7, ease: "easeInOut" }}
+      transition={{ duration: 0.8, ease: "easeInOut" }}
       onClick={finish}
       role="button"
       tabIndex={-1}
       aria-label="Skip intro"
     >
-      {/* spiral canvas — offset so centre of canvas is screen centre */}
+      {/* spiral canvas */}
       <canvas
         ref={canvasRef}
         style={{
@@ -289,86 +287,56 @@ export default function LogoPreloader({ onDone }: Props) {
         }}
       />
 
-      {/* centred overlay: logo + wordmark + status */}
+      {/* ARCH-X — centred exactly over the spiral, fades in with the animation */}
       <AnimatePresence>
         {ready && (
           <motion.div
-            key="overlay"
+            key="center-text"
             style={{
               position: "absolute", inset: 0,
               display: "flex", flexDirection: "column",
               alignItems: "center", justifyContent: "center",
-              gap: "1.4rem", pointerEvents: "none",
+              pointerEvents: "none",
+              gap: "0.6rem",
             }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.8 }}
+            transition={{ duration: 1.2 }}
           >
-            {/* Cyan atmosphere halo — bridges to the globe's rim glow in the hero */}
+            {/* main wordmark — sits in the eye of the spiral */}
             <motion.div
               style={{
-                position: "absolute",
-                width: "min(320px,55vw)", height: "min(320px,55vw)",
-                borderRadius: "50%",
-                background: "radial-gradient(circle, rgba(56,230,255,0.07) 0%, rgba(56,230,255,0.03) 40%, transparent 70%)",
-                pointerEvents: "none",
+                fontFamily: "'Courier New', 'Courier', monospace",
+                fontWeight: 700,
+                fontSize: "clamp(1.6rem, 5vw, 2.8rem)",
+                letterSpacing: "0.45em",
+                textIndent: "0.45em",
+                color: "#ffffff",
+                textShadow: "0 0 30px rgba(255,255,255,0.6), 0 0 60px rgba(255,255,255,0.2)",
+                userSelect: "none",
               }}
-              initial={{ opacity: 0, scale: 0.7 }}
+              initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 2.5, delay: 1.5, ease: "easeOut" }}
-            />
-
-            {/* logo */}
-            <motion.img
-              src="/arch-x-logo.svg"
-              alt="ARCH-X"
-              draggable={false}
-              style={{ width: "min(120px,22vw)", height: "min(120px,22vw)", objectFit: "contain", filter: "drop-shadow(0 0 28px rgba(148,163,184,0.4))" }}
-              initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.9, ease: "easeOut" }}
-            />
-
-            {/* ARCH-X wordmark */}
-            <motion.div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontWeight: 800,
-                fontSize: "clamp(2.2rem, 8vw, 4rem)",
-                letterSpacing: "0.55em",
-                textIndent: "0.55em",
-                color: "#e2e8f0",           /* slate-200 — bright, readable */
-                textShadow: "0 0 40px rgba(148,163,184,0.5), 0 0 80px rgba(148,163,184,0.2)",
-              }}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
+              transition={{ duration: 1.0, delay: 0.2, ease: "easeOut" }}
             >
               ARCH-X
             </motion.div>
 
-            {/* status line */}
+            {/* subtitle */}
             <motion.div
               style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.6rem",
-                letterSpacing: "0.38em",
+                fontFamily: "'Courier New', 'Courier', monospace",
+                fontSize: "0.58rem",
+                letterSpacing: "0.32em",
                 textTransform: "uppercase",
-                color: "#94a3b8",            /* slate-400 */
-                display: "flex", alignItems: "center", gap: "0.55rem",
+                color: "rgba(255,255,255,0.35)",
+                userSelect: "none",
               }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.5 }}
+              transition={{ duration: 0.8, delay: 0.7 }}
             >
-              <span style={{
-                width: 6, height: 6, borderRadius: "50%",
-                background: "#94a3b8",
-                boxShadow: "0 0 8px 2px rgba(148,163,184,0.5)",
-                display: "inline-block",
-                animation: "preloader-blink 1.2s steps(1) infinite",
-              }} />
               Initializing Cyber Range
             </motion.div>
           </motion.div>
@@ -378,21 +346,22 @@ export default function LogoPreloader({ onDone }: Props) {
       {/* skip hint */}
       <motion.div
         style={{
-          position: "absolute", bottom: "1.6rem", left: "50%", transform: "translateX(-50%)",
-          fontFamily: "var(--font-mono)", fontSize: "0.55rem",
-          letterSpacing: "0.22em", textTransform: "uppercase", color: "#475569",
+          position: "absolute", bottom: "1.8rem", left: "50%",
+          transform: "translateX(-50%)",
+          fontFamily: "'Courier New', monospace",
+          fontSize: "0.5rem",
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+          color: "rgba(255,255,255,0.2)",
           pointerEvents: "none",
+          whiteSpace: "nowrap",
         }}
         initial={{ opacity: 0 }}
-        animate={{ opacity: ready ? 0.8 : 0 }}
-        transition={{ duration: 0.6, delay: 1 }}
+        animate={{ opacity: ready ? 1 : 0 }}
+        transition={{ duration: 0.6, delay: 1.2 }}
       >
         Click or press Esc to skip
       </motion.div>
-
-      <style>{`
-        @keyframes preloader-blink { 0%,60%{opacity:1} 61%,100%{opacity:0.2} }
-      `}</style>
     </motion.div>
   );
 }
