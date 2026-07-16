@@ -186,7 +186,11 @@ class AnimationController {
 
   render() {
     const ctx = this.ctx;
-    ctx.fillStyle = "#000000";
+    const bg = ctx.createRadialGradient(this.size / 2, this.size * 0.46, 0, this.size / 2, this.size * 0.46, this.size * 0.88);
+    bg.addColorStop(0, "#07080f");
+    bg.addColorStop(0.58, "#040509");
+    bg.addColorStop(1, "#010103");
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, this.size, this.size);
     ctx.save();
     ctx.translate(this.size / 2, this.size / 2);
@@ -265,7 +269,7 @@ export default function LogoPreloader({ onDone }: Props) {
     <motion.div
       style={{
         position: "fixed", inset: 0, zIndex: 9998,
-        background: "#000000",
+        background: "radial-gradient(125% 125% at 50% 46%, #07080f 0%, #040509 58%, #010103 100%)",
         overflow: "hidden", cursor: "pointer",
       }}
       initial={{ opacity: 1 }}
@@ -312,8 +316,8 @@ export default function LogoPreloader({ onDone }: Props) {
                 fontSize: "clamp(1.6rem, 5vw, 2.8rem)",
                 letterSpacing: "0.45em",
                 textIndent: "0.45em",
-                color: "#ffffff",
-                textShadow: "0 0 30px rgba(255,255,255,0.6), 0 0 60px rgba(255,255,255,0.2)",
+                color: "#e2e8f0",
+                textShadow: "0 0 40px rgba(148,163,184,0.5), 0 0 80px rgba(148,163,184,0.2)",
                 userSelect: "none",
               }}
               initial={{ opacity: 0, scale: 0.92 }}
@@ -330,7 +334,7 @@ export default function LogoPreloader({ onDone }: Props) {
                 fontSize: "0.58rem",
                 letterSpacing: "0.32em",
                 textTransform: "uppercase",
-                color: "rgba(255,255,255,0.35)",
+                color: "#94a3b8",
                 userSelect: "none",
               }}
               initial={{ opacity: 0 }}
@@ -352,7 +356,7 @@ export default function LogoPreloader({ onDone }: Props) {
           fontSize: "0.5rem",
           letterSpacing: "0.22em",
           textTransform: "uppercase",
-          color: "rgba(255,255,255,0.2)",
+          color: "#475569",
           pointerEvents: "none",
           whiteSpace: "nowrap",
         }}
