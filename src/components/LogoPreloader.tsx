@@ -186,7 +186,12 @@ class AnimationController {
 
   render() {
     const ctx = this.ctx;
-    ctx.fillStyle = "black";
+    // Match the hero's deep-space gradient so the transition feels continuous
+    const bg = ctx.createRadialGradient(this.size / 2, this.size * 0.46, 0, this.size / 2, this.size * 0.46, this.size * 0.88);
+    bg.addColorStop(0, "#07080f");
+    bg.addColorStop(0.58, "#040509");
+    bg.addColorStop(1, "#010103");
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, this.size, this.size);
     ctx.save();
     ctx.translate(this.size / 2, this.size / 2);
@@ -264,7 +269,7 @@ export default function LogoPreloader({ onDone }: Props) {
 
   return (
     <motion.div
-      style={{ position: "fixed", inset: 0, zIndex: 9998, background: "#000", overflow: "hidden", cursor: "pointer" }}
+      style={{ position: "fixed", inset: 0, zIndex: 9998, background: "radial-gradient(125% 125% at 50% 46%, #07080f 0%, #040509 58%, #010103 100%)", overflow: "hidden", cursor: "pointer" }}
       initial={{ opacity: 1 }}
       animate={{ opacity: exiting ? 0 : 1 }}
       transition={{ duration: 0.7, ease: "easeInOut" }}
@@ -300,6 +305,20 @@ export default function LogoPreloader({ onDone }: Props) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8 }}
           >
+            {/* Cyan atmosphere halo — bridges to the globe's rim glow in the hero */}
+            <motion.div
+              style={{
+                position: "absolute",
+                width: "min(320px,55vw)", height: "min(320px,55vw)",
+                borderRadius: "50%",
+                background: "radial-gradient(circle, rgba(56,230,255,0.07) 0%, rgba(56,230,255,0.03) 40%, transparent 70%)",
+                pointerEvents: "none",
+              }}
+              initial={{ opacity: 0, scale: 0.7 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 2.5, delay: 1.5, ease: "easeOut" }}
+            />
+
             {/* logo */}
             <motion.img
               src="/arch-x-logo.svg"
