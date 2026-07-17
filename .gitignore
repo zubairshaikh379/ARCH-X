@@ -13,3 +13,6 @@ artifacts/
 package-lock.json
 attached_assets/
 .agents/
+replit.nix
+replit.md
+.replit
