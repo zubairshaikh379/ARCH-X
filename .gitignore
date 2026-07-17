@@ -17,4 +17,4 @@ replit.nix
 replit.md
 .replit
 pnpm-lock.yaml
-.github/workflows
+.github/
